@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Birthday Countdown List</title>
+    <!-- GitHub Pagesでのシェア時に表示される説明 -->
+    <meta name="description" content="大切な人の誕生日を管理・カウントダウンするシンプルツール">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background: #f8fafc;
+            min-height: 100vh;
+        }
+        .birthday-card {
+            transition: transform 0.2s;
+        }
+        .birthday-card:hover {
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-2xl mx-auto">
+        <header class="text-center mb-10">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">🎂 誕生日カウントダウン</h1>
+            <p class="text-gray-500">大切な人たちの誕生日を管理しましょう</p>
+        </header>
+
+        <!-- 入力フォーム -->
+        <div class="bg-white rounded-2xl shadow-sm p-6 mb-8 border border-gray-100">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <input type="text" id="nameInput" placeholder="名前" 
+                    class="px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                
+                <div class="flex gap-2">
+                    <select id="monthInput" class="w-1/2 px-2 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                        <option value="">月</option>
+                    </select>
+                    <select id="dayInput" class="w-1/2 px-2 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                        <option value="">日</option>
+                    </select>
+                </div>
+
+                <button onclick="addBirthday()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg transition-all active:scale-95">
+                    追加する
+                </button>
+            </div>
+        </div>
+
+        <!-- リスト表示エリア -->
+        <div id="birthdayList" class="space-y-4">
+            <!-- JSで動的に追加されます -->
+        </div>
+
+        <footer class="mt-20 text-center text-gray-400 text-sm">
+            <p>※データはこのブラウザに保存されます</p>
+        </footer>
+    </div>
+
+    <script>
+        const monthSelect = document.getElementById('monthInput');
+        const daySelect = document.getElementById('dayInput');
+        let birthdays = JSON.parse(localStorage.getItem('birthday_list')) || [];
+
+        // 初期設定：月の選択肢
+        for (let i = 1; i <= 12; i++) {
+            const opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = i + '月';
+            monthSelect.appendChild(opt);
+        }
+
+        // 月に合わせて日の選択肢を更新
+        monthSelect.addEventListener('change', () => {
+            const month = parseInt(monthSelect.value);
+            daySelect.innerHTML = '<option value="">日</option>';
+            if (!month) return;
+            const days = new Date(2024, month, 0).getDate();
+            for (let i = 1; i <= days; i++) {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.textContent = i + '日';
+                daySelect.appendChild(opt);
+            }
+        });
+
+        // 誕生日の追加
+        function addBirthday() {
+            const name = document.getElementById('nameInput').value.trim();
+            const month = parseInt(monthSelect.value);
+            const day = parseInt(daySelect.value);
+
+            if (!name || !month || !day) {
+                alert('名前と日付を入力してください');
+                return;
+            }
+
+            const newEntry = {
+                id: Date.now(),
+                name: name,
+                month: month,
+                day: day
+            };
+
+            birthdays.push(newEntry);
+            saveAndRender();
+            
+            // フォームのリセット
+            document.getElementById('nameInput').value = '';
+            monthSelect.value = '';
+            daySelect.innerHTML = '<option value="">日</option>';
+        }
+
+        // 削除
+        function deleteBirthday(id) {
+            birthdays = birthdays.filter(b => b.id !== id);
+            saveAndRender();
+        }
+
+        // 残り日数の計算
+        function getDaysUntil(month, day) {
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            let target = new Date(now.getFullYear(), month - 1, day);
+
+            if (target < today) {
+                target.setFullYear(now.getFullYear() + 1);
+            }
+
+            const diffTime = target - today;
+            return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        }
+
+        // 保存と描画
+        function saveAndRender() {
+            // 残り日数順にソート
+            birthdays.sort((a, b) => getDaysUntil(a.month, a.day) - getDaysUntil(b.month, b.day));
+            
+            localStorage.setItem('birthday_list', JSON.stringify(birthdays));
+            renderList();
+        }
+
+        function renderList() {
+            const listElement = document.getElementById('birthdayList');
+            listElement.innerHTML = '';
+
+            if (birthdays.length === 0) {
+                listElement.innerHTML = '<p class="text-center text-gray-400 py-10">リストが空です</p>';
+                return;
+            }
+
+            birthdays.forEach(person => {
+                const daysLeft = getDaysUntil(person.month, person.day);
+                const isToday = daysLeft === 0;
+
+                const card = document.createElement('div');
+                card.className = `birthday-card flex items-center justify-between p-5 rounded-xl border ${isToday ? 'bg-pink-50 border-pink-200' : 'bg-white border-gray-100 shadow-sm'}`;
+                
+                card.innerHTML = `
+                    <div class="flex flex-col">
+                        <span class="text-sm text-gray-500">${person.month}月${person.day}日</span>
+                        <span class="text-lg font-bold text-gray-800">${person.name}</span>
+                    </div>
+                    <div class="flex items-center gap-6">
+                        <div class="text-right">
+                            ${isToday ? 
+                                '<span class="text-pink-600 font-bold text-xl animate-pulse">🎂 本日誕生日！</span>' : 
+                                `<span class="text-sm text-gray-400">あと</span> <span class="text-2xl font-bold text-indigo-600">${daysLeft}</span> <span class="text-sm text-gray-400">日</span>`
+                            }
+                        </div>
+                        <button onclick="deleteBirthday(${person.id})" class="text-gray-300 hover:text-red-400 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
+                    </div>
+                `;
+                listElement.appendChild(card);
+            });
+        }
+
+        // 初回読み込み
+        renderList();
+    </script>
+</body>
+</html>
